@@ -38,7 +38,8 @@ CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRe
     bool * pressed_x = data;
 
     if (type == kCGEventFlagsChanged) {
-
+        // TO-DO: check if X is upper case
+        return event;
     }
     else  if (type != kCGEventKeyDown) {
         printf (" WHAAAAAAAAT %d \n", type);
