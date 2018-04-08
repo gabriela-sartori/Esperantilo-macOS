@@ -32,11 +32,10 @@ void simulate_key (UniChar c) {
     CGEventPost (kCGAnnotatedSessionEventTap, upEvt);
 }
 
-// Global state
-bool pressed_x = false; 
-
 // This callback will be invoked every time there is a keystroke.
-CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
+CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
+
+    bool * pressed_x = data;
 
     if (type == kCGEventFlagsChanged) {
 
@@ -49,8 +48,8 @@ CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRe
     // The incoming keycode
     CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
         
-    if (pressed_x) {
-        pressed_x = false;
+    if (*pressed_x) {
+        *pressed_x = false;
 
         UniChar key;
         switch (keycode) {
@@ -72,7 +71,7 @@ CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRe
     if (keycode != (CGKeyCode) KEY_X)
         return event;
 
-    pressed_x = true;
+    *pressed_x = true;
     return 0;
 }
 
@@ -87,8 +86,9 @@ int main () {
     CGEventMask eventMask = (1 << kCGEventKeyDown)
                           | (1 << kCGEventFlagsChanged) ;
 
+    bool pressed_x = false;
     CFMachPortRef eventTap  = CGEventTapCreate (kCGSessionEventTap,
-        kCGHeadInsertEventTap, 0, eventMask, myCGEventCallback, NULL);
+        kCGHeadInsertEventTap, 0, eventMask, myCGEventCallback, &pressed_x);
 
     if (! eventTap) {
         printf ("Failed to hook. Check file permissions, use sudo or enable "
