@@ -90,14 +90,23 @@ CGEventRef myCGEventCallback_cx (CGEventTapProxy proxy, CGEventType type, CGEven
     if (type != kCGEventKeyDown)
         return event;
 
-    // Check if only capslock or shift are being pressed
+    UniChar * last_key = data;
     CGEventFlags flags = CGEventSourceFlagsState (kCGEventSourceStateHIDSystemState);
+    
+    // Ignore if any modifier key is being pressed
+    if ((kCGEventFlagMaskControl     & flags)
+    ||  (kCGEventFlagMaskAlternate   & flags)
+    ||  (kCGEventFlagMaskCommand     & flags)
+    ||  (kCGEventFlagMaskSecondaryFn & flags)) {
+        *last_key = 0;
+        return event;
+    }
+
+    // Check if only capslock or shift are being pressed
     bool upper = (kCGEventFlagMaskAlphaShift & flags) ^ (kCGEventFlagMaskShift & flags);
     
     // The incoming keycode
     CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-
-    UniChar * last_key = data;
 
     // Store last key pressed
     switch (keycode) {
