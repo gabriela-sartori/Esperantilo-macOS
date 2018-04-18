@@ -1,21 +1,16 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h>
+#include <pthread.h>
+#include <unistd.h>
 
-const uint KEY_X_c = 265;
-const uint KEY_X_C = 264;
-const uint KEY_X_g = 285;
-const uint KEY_X_G = 284;
-const uint KEY_X_h = 293;
-const uint KEY_X_H = 292;
-const uint KEY_X_j = 309;
-const uint KEY_X_J = 308;
-const uint KEY_X_s = 349;
-const uint KEY_X_S = 348;
-const uint KEY_X_u = 365;
-const uint KEY_X_U = 364;
-const uint KEY_x   = 7;
-const uint KEY_X   = 7;
+const UniChar ĉ = 265;
+const UniChar ĝ = 285;
+const UniChar ĥ = 293;
+const UniChar ĵ = 309;
+const UniChar ŝ = 349;
+const UniChar ŭ = 365;
 
+const CGKeyCode KEY_X =  7;
 const CGKeyCode KEY_C =  8;
 const CGKeyCode KEY_G =  5;
 const CGKeyCode KEY_H =  4;
@@ -32,35 +27,41 @@ void simulate_key (UniChar c) {
     CGEventPost (kCGAnnotatedSessionEventTap, upEvt);
 }
 
-// This callback will be invoked every time there is a keystroke.
-CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
+void simulate_delete () {
+    CGEventRef downEvt = CGEventCreateKeyboardEvent( NULL, 0, true );
+    CGEventRef upEvt   = CGEventCreateKeyboardEvent( NULL, 0, false );
+    CGEventSetIntegerValueField (downEvt, kCGKeyboardEventKeycode, (CGKeyCode) 51);
+    CGEventSetIntegerValueField (upEvt,   kCGKeyboardEventKeycode, (CGKeyCode) 51);
+    CGEventPost (kCGSessionEventTap, downEvt);
+    CGEventPost (kCGSessionEventTap, upEvt);
+}
 
-    bool * pressed_x = data;
+// This callback will be invoked every time there is a keystroke.
+CGEventRef myCGEventCallback_xc (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
 
     if (type == kCGEventFlagsChanged) {
         // TO-DO: check if X is upper case
         return event;
     }
-    else  if (type != kCGEventKeyDown) {
-        printf (" WHAAAAAAAAT %d \n", type);
+    else if (type != kCGEventKeyDown)
         return event;
-    }
     
     // The incoming keycode
     CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-        
+    
+    bool * pressed_x = data;
+
     if (*pressed_x) {
         *pressed_x = false;
 
         UniChar key;
         switch (keycode) {
-            case KEY_C: key = KEY_X_c; break;
-            case KEY_G: key = KEY_X_g; break;
-            case KEY_H: key = KEY_X_h; break;
-            case KEY_J: key = KEY_X_j; break;
-            case KEY_S: key = KEY_X_s; break;
-            case KEY_U: key = KEY_X_u; break;
-            //case KEY_x: key = KEY_x;   break;
+            case KEY_C: key = ĉ; break;
+            case KEY_G: key = ĝ; break;
+            case KEY_H: key = ĥ; break;
+            case KEY_J: key = ĵ; break;
+            case KEY_S: key = ŝ; break;
+            case KEY_U: key = ŭ; break;
             default:
                 return event;
         }
@@ -76,20 +77,68 @@ CGEventRef myCGEventCallback (CGEventTapProxy proxy, CGEventType type, CGEventRe
     return 0;
 }
 
-int main () {
+
+void * press_key_thread (void * key) {
+    usleep(100);
+    simulate_key ((UniChar) key);
+    return NULL;
+}
+
+// This callback will be invoked every time there is a keystroke.
+CGEventRef myCGEventCallback_cx (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
+
+    if (type == kCGEventFlagsChanged) {
+        // TO-DO: check if X is upper case
+        return event;
+    }
+    else  if (type != kCGEventKeyDown)
+        return event;
     
+    // The incoming keycode
+    CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+
+    UniChar * last_key = data;
+
+    // Store last key pressed
+    switch (keycode) {
+        case KEY_C: *last_key = ĉ; break;
+        case KEY_G: *last_key = ĝ; break;
+        case KEY_H: *last_key = ĥ; break;
+        case KEY_J: *last_key = ĵ; break;
+        case KEY_S: *last_key = ŝ; break;
+        case KEY_U: *last_key = ŭ; break;
+        case KEY_X:                break;
+        default:    *last_key = 0;
+    }
+
+    if (keycode != (CGKeyCode) KEY_X || *last_key == 0)
+        return event;
+    
+    simulate_delete ();
+    
+    // Creates thread to send diacritic after a while
+    pthread_t tid;
+    pthread_create (&tid, NULL, press_key_thread, (void *) (size_t) *last_key);
+
+    return 0;
+}
+
+int main (int argc, char ** args) {
     printf ("╔═══════════════════════════════════════════════════════════════════════╗\n"
             "║ iEsperantilo 1.0 is running globally in all windows!                  ║\n"
-            "║ Press x and a letter to produce the correspondent diacritics (ŝĉĝĥĵŭ) ║\n"
+            "║ Press a letter and x to produce the correspondent diacritics (ŝĉĝĥĵŭ) ║\n"
             "║ Press Ctrl + C in this window to turn off.                            ║\n"
+            "║ Source code and infos: https://github.com/G4BB3R/Esperantilo-macOS    ║\n" 
             "╚═══════════════════════════════════════════════════════════════════════╝\n");
 
     CGEventMask eventMask = (1 << kCGEventKeyDown)
-                          | (1 << kCGEventFlagsChanged) ;
+                          | (1 << kCGEventFlagsChanged)
+                          ;
 
-    bool pressed_x = false;
-    CFMachPortRef eventTap  = CGEventTapCreate (kCGSessionEventTap,
-        kCGHeadInsertEventTap, 0, eventMask, myCGEventCallback, &pressed_x);
+    UniChar state = 0;
+    CFMachPortRef eventTap =
+        CGEventTapCreate (kCGSessionEventTap, kCGHeadInsertEventTap, 0, eventMask,
+            argc > 1 ? myCGEventCallback_xc : myCGEventCallback_cx, &state);
 
     if (! eventTap) {
         printf ("Failed to hook. Check file permissions, use sudo or enable "
