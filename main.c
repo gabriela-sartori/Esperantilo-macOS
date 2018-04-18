@@ -87,12 +87,12 @@ void * press_key_thread (void * key) {
 // This callback will be invoked every time there is a keystroke.
 CGEventRef myCGEventCallback_cx (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
 
-    if (type == kCGEventFlagsChanged) {
-        // TO-DO: check if X is upper case
+    if (type != kCGEventKeyDown)
         return event;
-    }
-    else  if (type != kCGEventKeyDown)
-        return event;
+
+    // Check if only capslock or shift are being pressed
+    CGEventFlags flags = CGEventSourceFlagsState (kCGEventSourceStateHIDSystemState);
+    bool upper = (kCGEventFlagMaskAlphaShift & flags) ^ (kCGEventFlagMaskShift & flags);
     
     // The incoming keycode
     CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
@@ -111,8 +111,17 @@ CGEventRef myCGEventCallback_cx (CGEventTapProxy proxy, CGEventType type, CGEven
         default:    *last_key = 0;
     }
 
-    if (keycode != (CGKeyCode) KEY_X || *last_key == 0)
+    if (*last_key == 0)
         return event;
+
+    if (keycode != (CGKeyCode) KEY_X) {
+        
+        // Result diacritic wil be uppercase
+        if (*last_key > 0 && upper)
+            (*last_key)--;
+
+        return event;   
+    }
     
     simulate_delete ();
     
@@ -131,9 +140,7 @@ int main (int argc, char ** args) {
             "║ Source code and infos: https://github.com/G4BB3R/Esperantilo-macOS    ║\n" 
             "╚═══════════════════════════════════════════════════════════════════════╝\n");
 
-    CGEventMask eventMask = (1 << kCGEventKeyDown)
-                          | (1 << kCGEventFlagsChanged)
-                          ;
+    CGEventMask eventMask = (1 << kCGEventKeyDown) ;
 
     UniChar state = 0;
     CFMachPortRef eventTap =
