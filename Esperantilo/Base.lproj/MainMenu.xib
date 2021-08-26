@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="13771" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="13771"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
+            <connections>
+                <outlet property="delegate" destination="Voe-Tx-rLC" id="GzC-gU-4Uq"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="Esperantilo" customModuleProvider="target">
+            <connections>
+                <outlet property="btnEnable" destination="yCh-yv-bAR" id="TPk-Zl-7ba"/>
+                <outlet property="menu" destination="kto-fb-gxN" id="7ac-fS-9JI"/>
+            </connections>
+        </customObject>
+        <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
+        <menu id="kto-fb-gxN">
+            <items>
+                <menuItem title="Disable" id="yCh-yv-bAR">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="enableClicked:" target="Voe-Tx-rLC" id="B35-J2-hOO"/>
+                    </connections>
+                </menuItem>
+                <menuItem title="More Info" id="dnX-bp-IVP">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="btnInfo:" target="Voe-Tx-rLC" id="RWi-k7-pt1"/>
+                    </connections>
+                </menuItem>
+                <menuItem title="Quit v1.1" id="CES-5d-WCQ">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="quitClicked:" target="Voe-Tx-rLC" id="xST-B9-1Nu"/>
+                    </connections>
+                </menuItem>
+            </items>
+        </menu>
+    </objects>
+</document>

@@ -1,4 +1,11 @@
-#include <ApplicationServices/ApplicationServices.h>
+//
+//  core.c
+//  Esperantilo
+//
+//  Created by Gabriel Torrecillas Sartori on 19/04/18.
+//  Copyright © 2018 Gabriel Torrecillas Sartori. All rights reserved.
+//
+
 #include <Carbon/Carbon.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -25,6 +32,8 @@ void simulate_key (UniChar c) {
     CGEventKeyboardSetUnicodeString (upEvt,   1, &c);
     CGEventPost (kCGAnnotatedSessionEventTap, downEvt);
     CGEventPost (kCGAnnotatedSessionEventTap, upEvt);
+    CFRelease(downEvt);
+    CFRelease(upEvt);
 }
 
 void simulate_delete () {
@@ -34,49 +43,9 @@ void simulate_delete () {
     CGEventSetIntegerValueField (upEvt,   kCGKeyboardEventKeycode, (CGKeyCode) 51);
     CGEventPost (kCGSessionEventTap, downEvt);
     CGEventPost (kCGSessionEventTap, upEvt);
+    CFRelease(downEvt);
+    CFRelease(upEvt);
 }
-
-// This callback will be invoked every time there is a keystroke.
-CGEventRef myCGEventCallback_xc (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
-
-    if (type == kCGEventFlagsChanged) {
-        // TO-DO: check if X is upper case
-        return event;
-    }
-    else if (type != kCGEventKeyDown)
-        return event;
-    
-    // The incoming keycode
-    CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-    
-    bool * pressed_x = data;
-
-    if (*pressed_x) {
-        *pressed_x = false;
-
-        UniChar key;
-        switch (keycode) {
-            case KEY_C: key = ĉ; break;
-            case KEY_G: key = ĝ; break;
-            case KEY_H: key = ĥ; break;
-            case KEY_J: key = ĵ; break;
-            case KEY_S: key = ŝ; break;
-            case KEY_U: key = ŭ; break;
-            default:
-                return event;
-        }
-        
-        simulate_key (key);
-        return 0;
-    }
-
-    if (keycode != (CGKeyCode) KEY_X)
-        return event;
-
-    *pressed_x = true;
-    return 0;
-}
-
 
 void * press_key_thread (void * key) {
     usleep(100);
@@ -84,24 +53,30 @@ void * press_key_thread (void * key) {
     return NULL;
 }
 
+// Global state
+bool enabled = true;
+UniChar last_key = 0;
+
 // This callback will be invoked every time there is a keystroke.
 CGEventRef myCGEventCallback_cx (CGEventTapProxy proxy, CGEventType type, CGEventRef event, void * data) {
-
+    
+    if (! enabled)
+        return event;
+    
     if (type != kCGEventKeyDown)
         return event;
-
-    UniChar * last_key = data;
+    
     CGEventFlags flags = CGEventSourceFlagsState (kCGEventSourceStateHIDSystemState);
     
     // Ignore if any modifier key is being pressed
     if ((kCGEventFlagMaskControl     & flags)
-    ||  (kCGEventFlagMaskAlternate   & flags)
-    ||  (kCGEventFlagMaskCommand     & flags)
-    ||  (kCGEventFlagMaskSecondaryFn & flags)) {
-        *last_key = 0;
+        ||  (kCGEventFlagMaskAlternate   & flags)
+        ||  (kCGEventFlagMaskCommand     & flags)
+        ||  (kCGEventFlagMaskSecondaryFn & flags)) {
+        last_key = 0;
         return event;
     }
-
+    
     // Check if only capslock or shift are being pressed
     bool upper = (kCGEventFlagMaskAlphaShift & flags) ^ (kCGEventFlagMaskShift & flags);
     
@@ -109,71 +84,70 @@ CGEventRef myCGEventCallback_cx (CGEventTapProxy proxy, CGEventType type, CGEven
     CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
     // Store last key pressed
+    if (keycode != KEY_X)
     switch (keycode) {
-        case KEY_C: *last_key = ĉ; break;
-        case KEY_G: *last_key = ĝ; break;
-        case KEY_H: *last_key = ĥ; break;
-        case KEY_J: *last_key = ĵ; break;
-        case KEY_S: *last_key = ŝ; break;
-        case KEY_U: *last_key = ŭ; break;
+        case KEY_C: last_key = ĉ; break;
+        case KEY_G: last_key = ĝ; break;
+        case KEY_H: last_key = ĥ; break;
+        case KEY_J: last_key = ĵ; break;
+        case KEY_S: last_key = ŝ; break;
+        case KEY_U: last_key = ŭ; break;
         case KEY_X:                break;
-        default:    *last_key = 0;
+        default:    last_key = 0;
     }
-
-    if (*last_key == 0)
+    
+    if (last_key == 0)
         return event;
-
+    
     if (keycode != (CGKeyCode) KEY_X) {
         
         // Result diacritic wil be uppercase
-        if (*last_key > 0 && upper)
-            (*last_key)--;
-
-        return event;   
+        if (last_key > 0 && upper)
+            (last_key)--;
+        
+        return event;
     }
-    
+
     simulate_delete ();
     
     // Creates thread to send diacritic after a while
     pthread_t tid;
-    pthread_create (&tid, NULL, press_key_thread, (void *) (size_t) *last_key);
-
+    pthread_create (&tid, NULL, press_key_thread, (void *) (size_t) last_key);
+    
     return 0;
 }
 
-int main (int argc, char ** args) {
-    printf ("╔═══════════════════════════════════════════════════════════════════════╗\n"
-            "║ iEsperantilo 1.0 is running globally in all windows!                  ║\n"
-            "║ Press a letter and x to produce the correspondent diacritics (ŝĉĝĥĵŭ) ║\n"
-            "║ Press Ctrl + C in this window to turn off.                            ║\n"
-            "║ Source code and infos: https://github.com/G4BB3R/Esperantilo-macOS    ║\n" 
-            "╚═══════════════════════════════════════════════════════════════════════╝\n");
+void core_enable (int _enabled) {
+    enabled = _enabled;
+}
 
+int core_create_event_tap () {
+    
     CGEventMask eventMask = (1 << kCGEventKeyDown) ;
 
-    UniChar state = 0;
     CFMachPortRef eventTap =
-        CGEventTapCreate (kCGSessionEventTap, kCGHeadInsertEventTap, 0, eventMask,
-            argc > 1 ? myCGEventCallback_xc : myCGEventCallback_cx, &state);
+        CGEventTapCreate (kCGSessionEventTap, kCGHeadInsertEventTap, 0, eventMask, myCGEventCallback_cx, NULL);
 
     if (! eventTap) {
         printf ("Failed to hook. Check file permissions, use sudo or enable "
                 "access for assistive devices in system settings.\n");
-        exit (1);
+        return 0;
     }
-    
+
     // Create a run loop source.
     CFRunLoopSourceRef runLoopSource =
         CFMachPortCreateRunLoopSource (kCFAllocatorDefault, eventTap, 0);
-    
+
     // Add to the current run loop.
     CFRunLoopAddSource (CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
-    
+
     // Enable the event tap.
     CGEventTapEnable (eventTap, true);
-    
+
     // Set it all running.
     CFRunLoopRun ();
     
-    exit (0);
+    CFRelease(runLoopSource);
+    return 1;
 }
+
